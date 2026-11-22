@@ -19,8 +19,49 @@ python manage.py runserver
 ```
 
 Settings come from environment variables (`DJANGO_SECRET_KEY`, `POSTGRES_PASSWORD` and the rest in
-`.env.example`), so no secrets live in the code. The data CSV is not included in the repo; the example data comes
-from the Kaggle dataset linked below.
+`.env.example`), so no secrets live in the code. You need PostgreSQL running with a database for
+`POSTGRES_DB` (default `energy_db`).
+
+## Getting the data
+
+The data is **not included in the repo** (CSV files are git-ignored). The API needs a CSV called
+**`energy_data.csv`**, placed in the **project root, next to `manage.py`**. Get it one of two ways:
+
+**Option A: Kaggle (the full dataset, with demand and interconnector flows)**
+
+1. Download `UK_Fuel_Mix.csv` from
+   [UK Energy Data 2020-23 on Kaggle](https://www.kaggle.com/datasets/danielparke/uk-energy-data-2020-23?select=UK_Fuel_Mix.csv)
+   (needs a free Kaggle account).
+2. Rename it to `energy_data.csv` and put it next to `manage.py`.
+
+**Option B: NESO (official, no account needed)**
+
+1. Download `df_fuel_ckan.csv` from NESO's
+   [Historic GB Generation Mix](https://www.neso.energy/data-portal/historic-generation-mix) page.
+2. Convert it with the included script, choosing the years you want:
+
+   ```bash
+   python scripts/neso_to_energy_csv.py df_fuel_ckan.csv --from-year 2020 --to-year 2023
+   ```
+
+   This writes `energy_data.csv` next to `manage.py`. NESO's file has the generation mix, carbon intensity and
+   percentages, but not demand or interconnector flows, so those fields import as 0.
+
+**Load it into the database** (after `python manage.py migrate`), either from the command line:
+
+```bash
+python manage.py import_energy_data       # reads energy_data.csv in the current folder
+```
+
+or through the API while the server is running:
+
+```bash
+curl -X POST -F "file=@energy_data.csv" http://127.0.0.1:8000/api/v1/energy/upload/
+```
+
+The CSV needs a `date_time` column in the form `2023-01-01 00:00:00+00:00`, plus any of the field columns in
+`api/models.py` (for example `gas`, `nuclear`, `solar`, `carbon_intensity`, `wind_perc`). Missing columns import
+as 0.
 
 ---
 
